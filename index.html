@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VS Code Simulator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #1e1e1e;
+      color: #cccccc;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .app-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    /* Activity Bar Left */
+    .activity-bar {
+      width: 48px;
+      background-color: #333333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 10px;
+      gap: 15px;
+    }
+    .activity-bar button {
+      background: none;
+      border: none;
+      color: #858585;
+      cursor: pointer;
+      font-size: 20px;
+    }
+    .activity-bar button.active {
+      color: #ffffff;
+    }
+    /* Sidebar / Explorer */
+    .sidebar {
+      width: 250px;
+      background-color: #252526;
+      border-right: 1px solid #181818;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+    }
+    .sidebar-header {
+      padding: 10px 15px;
+      font-size: 11px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      color: #bbbbbb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2d2d2d;
+    }
+    .sidebar-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .sidebar-actions button {
+      background: none;
+      border: none;
+      color: #cccccc;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    .sidebar-actions button:hover {
+      background-color: #3c3c3c;
+    }
+    .file-tree {
+      flex: 1;
+      overflow-y: auto;
+      padding-top: 5px;
+    }
+    .tree-item {
+      display: flex;
+      align-items: center;
+      padding: 4px 10px;
+      cursor: pointer;
+      font-size: 13px;
+      position: relative;
+    }
+    .tree-item:hover {
+      background-color: #2a2d2e;
+    }
+    .tree-item.active {
+      background-color: #37373d;
+      color: #ffffff;
+    }
+    .tree-item .icon {
+      margin-right: 6px;
+      width: 16px;
+      text-align: center;
+    }
+    .tree-item input.edit-input {
+      background: #3c3c3c;
+      color: #fff;
+      border: 1px solid #007acc;
+      font-size: 13px;
+      outline: none;
+      padding: 1px 4px;
+      width: 100%;
+    }
+    .tree-item-actions {
+      display: none;
+      position: absolute;
+      right: 8px;
+      gap: 4px;
+    }
+    .tree-item:hover .tree-item-actions {
+      display: flex;
+    }
+    .tree-item-actions button {
+      background: none;
+      border: none;
+      color: #aaaaaa;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .tree-item-actions button:hover {
+      color: #ffffff;
+    }
+    /* Main Content */
+    .main-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #1e1e1e;
+    }
+    /* Tabs Header Bar */
+    .editor-header-bar {
+      display: flex;
+      align-items: center;
+      background-color: #252526;
+      border-bottom: 1px solid #1e1e1e;
+      height: 35px;
+    }
+    .tabs-container {
+      display: flex;
+      overflow-x: auto;
+      height: 100%;
+    }
+    .tab {
+      display: flex;
+      align-items: center;
+      padding: 0 15px;
+      background-color: #2d2d2d;
+      color: #969696;
+      font-size: 13px;
+      cursor: pointer;
+      border-right: 1px solid #252526;
+      height: 100%;
+    }
+    .tab.active {
+      background-color: #1e1e1e;
+      color: #ffffff;
+      border-top: 1px solid #007acc;
+    }
+    .tab .close-btn {
+      margin-left: 8px;
+      font-size: 12px;
+      border-radius: 50%;
+      padding: 0 4px;
+    }
+    .tab .close-btn:hover {
+      background-color: rgba(255,255,255,0.2);
+    }
+    /* Sub-header bar for Execution / Actions inside Editor */
+    .editor-sub-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      background-color: #1e1e1e;
+      padding: 6px 15px;
+      border-bottom: 1px solid #252526;
+    }
+    .run-btn {
+      background-color: #23d160;
+      color: #000;
+      font-weight: bold;
+      border: none;
+      padding: 6px 14px;
+      font-size: 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      transition: background-color 0.2s;
+    }
+    .run-btn:hover {
+      background-color: #22c65b;
+    }
+    /* Code Editor Pane */
+    .editor-body {
+      flex: 1;
+      display: flex;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      overflow: auto;
+      background-color: #1e1e1e;
+    }
+    .line-numbers {
+      padding: 10px 0;
+      text-align: right;
+      color: #858585;
+      background-color: #1e1e1e;
+      user-select: none;
+      width: 45px;
+      padding-right: 10px;
+    }
+    .code-input {
+      flex: 1;
+      background: transparent;
+      color: #d4d4d4;
+      border: none;
+      outline: none;
+      padding: 10px;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      resize: none;
+      white-space: pre;
+    }
+    /* Terminal Area */
+    .terminal-panel {
+      height: 220px;
+      background-color: #181818;
+      border-top: 1px solid #2d2d2d;
+      display: flex;
+      flex-direction: column;
+    }
+    .terminal-header {
+      background-color: #252526;
+      padding: 6px 15px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #cccccc;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .terminal-header button {
+      background: none;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+    }
+    .terminal-header button:hover {
+      color: #fff;
+    }
+    .terminal-content {
+      flex: 1;
+      padding: 10px;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      color: #cccccc;
+      overflow-y: auto;
+    }
+    .terminal-line {
+      margin-bottom: 4px;
+      word-break: break-all;
+    }
+    .terminal-input-row {
+      display: flex;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .terminal-prompt-symbol {
+      color: #23d160;
+      margin-right: 8px;
+    }
+    .terminal-input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #ffffff;
+      font-family: 'Consolas', 'Courier New', monospace;
+      font-size: 13px;
+      flex: 1;
+    }
+    /* Status Bar */
+    .status-bar {
+      height: 22px;
+      background-color: #007acc;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 10px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Activity Bar -->
+    <div class="activity-bar">
+      <button class="active" title="Explorador">📄</button>
+      <button title="Pesquisar">🔍</button>
+      <button title="Controle de Origem">🌿</button>
+      <button title="Executar e Depurar">▶️</button>
+    </div>
+
+    <!-- Sidebar / Explorer -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span>EXPLORADOR</span>
+        <div class="sidebar-actions">
+          <button id="btn-new-file" title="Novo Arquivo">+📄</button>
+          <button id="btn-new-folder" title="Nova Pasta">+📁</button>
+        </div>
+      </div>
+      <div class="file-tree" id="file-tree"></div>
+    </div>
+
+    <!-- Main Editor & Terminal Area -->
+    <div class="main-area">
+      <!-- Tabs Bar -->
+      <div class="editor-header-bar">
+        <div class="tabs-container" id="tabs-container"></div>
+      </div>
+
+      <!-- Action / Run Bar positioned below tabs -->
+      <div class="editor-sub-bar">
+        <button class="run-btn" id="btn-run">▶ Executar</button>
+      </div>
+
+      <div class="editor-body">
+        <div class="line-numbers" id="line-numbers">1</div>
+        <textarea class="code-input" id="code-input" spellcheck="false"></textarea>
+      </div>
+
+      <!-- Integrated Terminal -->
+      <div class="terminal-panel">
+        <div class="terminal-header">
+          <span>TERMINAL INTERATIVO</span>
+          <button id="btn-clear-terminal">Limpar</button>
+        </div>
+        <div class="terminal-content" id="terminal-content">
+          <div class="terminal-line">Clique no botão "Executar" para iniciar um programa ou digite abaixo.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span>Pronto</span>
+    <div>
+      <span id="status-line">Ln 1, Col 1</span> &nbsp;&nbsp;
+      <span id="status-lang">python</span> &nbsp;&nbsp;
+      <span>UTF-8</span>
+    </div>
+  </div>
+
+  <script>
+    // File system state
+    let files = [
+      { id: '1', name: 'hello.py', type: 'file', content: 'nome = input("Seu nome: ")\nprint(f"Olá, {nome}!")\nfor i in range(3):\n    print(i)', folderId: null },
+      { id: '2', name: 'hello.js', type: 'file', content: 'console.log("Olá do JavaScript!");', folderId: null },
+      { id: '3', name: 'hello.c', type: 'file', content: '#include <stdio.h>\n\nint main() {\n    printf("Olá do C!\\n");\n    return 0;\n}', folderId: null },
+      { id: '4', name: 'src', type: 'folder', folderId: null },
+      { id: '5', name: 'script.py', type: 'file', content: 'print("Arquivo dentro da pasta src")', folderId: '4' }
+    ];
+
+    let activeFileId = '1';
+    let editingFileId = null;
+
+    // Interactive Execution State
+    let executionState = {
+      running: false,
+      step: 0,
+      inputPromptText: '',
+      variables: {}
+    };
+
+    // DOM Elements
+    const fileTreeEl = document.getElementById('file-tree');
+    const tabsContainerEl = document.getElementById('tabs-container');
+    const codeInputEl = document.getElementById('code-input');
+    const lineNumbersEl = document.getElementById('line-numbers');
+    const terminalContentEl = document.getElementById('terminal-content');
+    const statusLangEl = document.getElementById('status-lang');
+    const statusLineEl = document.getElementById('status-line');
+
+    function getIcon(item) {
+      if (item.type === 'folder') return '📁';
+      if (item.name.endsWith('.py')) return '🐍';
+      if (item.name.endsWith('.js')) return '🟨';
+      if (item.name.endsWith('.c')) return '🟦';
+      if (item.name.endsWith('.html')) return '🌐';
+      return '📄';
+    }
+
+    function renderExplorer() {
+      fileTreeEl.innerHTML = '';
+      
+      function buildTree(folderId, depth = 0) {
+        const items = files.filter(f => f.folderId === folderId);
+        items.forEach(item => {
+          const div = document.createElement('div');
+          div.className = `tree-item ${item.id === activeFileId ? 'active' : ''}`;
+          div.style.paddingLeft = `${10 + depth * 15}px`;
+
+          if (editingFileId === item.id) {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'edit-input';
+            input.value = item.name;
+            input.onblur = () => finishRenaming(item.id, input.value);
+            input.onkeydown = (e) => {
+              if (e.key === 'Enter') finishRenaming(item.id, input.value);
+              if (e.key === 'Escape') { editingFileId = null; renderExplorer(); }
+            };
+            div.appendChild(input);
+            setTimeout(() => { input.focus(); input.select(); }, 10);
+          } else {
+            div.innerHTML = `
+              <span class="icon">${getIcon(item)}</span>
+              <span>${item.name}</span>
+              <div class="tree-item-actions">
+                <button title="Renomear" onclick="startRenaming(event, '${item.id}')">✏️</button>
+                <button title="Excluir" onclick="deleteItem(event, '${item.id}')">🗑️</button>
+              </div>
+            `;
+            div.onclick = () => {
+              if (item.type === 'file') {
+                activeFileId = item.id;
+                render();
+              }
+            };
+            div.ondblclick = (e) => {
+              e.stopPropagation();
+              startRenaming(e, item.id);
+            };
+          }
+
+          fileTreeEl.appendChild(div);
+          if (item.type === 'folder') {
+            buildTree(item.id, depth + 1);
+          }
+        });
+      }
+
+      buildTree(null, 0);
+    }
+
+    function renderTabs() {
+      tabsContainerEl.innerHTML = '';
+      const openFiles = files.filter(f => f.type === 'file');
+      openFiles.forEach(file => {
+        const tab = document.createElement('div');
+        tab.className = `tab ${file.id === activeFileId ? 'active' : ''}`;
+        tab.innerHTML = `
+          <span>${getIcon(file)} ${file.name}</span>
+          <span class="close-btn">&times;</span>
+        `;
+        tab.onclick = () => {
+          activeFileId = file.id;
+          render();
+        };
+        tabsContainerEl.appendChild(tab);
+      });
+    }
+
+    function renderEditor() {
+      const activeFile = files.find(f => f.id === activeFileId);
+      if (activeFile) {
+        codeInputEl.value = activeFile.content || '';
+        updateLineNumbers();
+        const ext = activeFile.name.split('.').pop();
+        statusLangEl.textContent = ext || 'plaintext';
+      } else {
+        codeInputEl.value = '';
+        lineNumbersEl.innerHTML = '1';
+        statusLangEl.textContent = 'none';
+      }
+    }
+
+    function updateLineNumbers() {
+      const lines = codeInputEl.value.split('\n').length;
+      let numbersHtml = '';
+      for (let i = 1; i <= lines; i++) {
+        numbersHtml += `${i}<br>`;
+      }
+      lineNumbersEl.innerHTML = numbersHtml;
+    }
+
+    function render() {
+      renderExplorer();
+      renderTabs();
+      renderEditor();
+    }
+
+    // Actions
+    document.getElementById('btn-new-file').onclick = () => {
+      const name = prompt('Nome do novo arquivo (ex: script.py, index.js, main.c):', 'novo_arquivo.py');
+      if (name) {
+        const newFile = {
+          id: Date.now().toString(),
+          name: name.trim(),
+          type: 'file',
+          content: '# Código novo\n',
+          folderId: null
+        };
+        files.push(newFile);
+        activeFileId = newFile.id;
+        render();
+      }
+    };
+
+    document.getElementById('btn-new-folder').onclick = () => {
+      const name = prompt('Nome da nova pasta:', 'nova_pasta');
+      if (name) {
+        files.push({
+          id: Date.now().toString(),
+          name: name.trim(),
+          type: 'folder',
+          folderId: null
+        });
+        render();
+      }
+    };
+
+    window.startRenaming = (e, id) => {
+      e.stopPropagation();
+      editingFileId = id;
+      renderExplorer();
+    };
+
+    function finishRenaming(id, newName) {
+      if (newName && newName.trim()) {
+        const item = files.find(f => f.id === id);
+        if (item) item.name = newName.trim();
+      }
+      editingFileId = null;
+      render();
+    }
+
+    window.deleteItem = (e, id) => {
+      e.stopPropagation();
+      files = files.filter(f => f.id !== id && f.folderId !== id);
+      if (activeFileId === id) {
+        const remainingFiles = files.filter(f => f.type === 'file');
+        activeFileId = remainingFiles.length > 0 ? remainingFiles[0].id : null;
+      }
+      render();
+    };
+
+    // Editor sync
+    codeInputEl.oninput = () => {
+      const activeFile = files.find(f => f.id === activeFileId);
+      if (activeFile) {
+        activeFile.content = codeInputEl.value;
+      }
+      updateLineNumbers();
+    };
+
+    codeInputEl.onkeyup = codeInputEl.onclick = () => {
+      const pos = codeInputEl.selectionStart;
+      const lines = codeInputEl.value.substring(0, pos).split('\n');
+      const line = lines.length;
+      const col = lines[lines.length - 1].length + 1;
+      statusLineEl.textContent = `Ln ${line}, Col ${col}`;
+    };
+
+    // Interactive Terminal Implementation
+    function appendTerminalLine(text, isError = false) {
+      const line = document.createElement('div');
+      line.className = 'terminal-line';
+      if (isError) line.style.color = '#f44336';
+      line.textContent = text;
+      terminalContentEl.appendChild(line);
+      terminalContentEl.scrollTop = terminalContentEl.scrollHeight;
+    }
+
+    function createInputRow(promptText = '') {
+      // Remove any existing input rows
+      const existingInputs = terminalContentEl.querySelectorAll('.terminal-input-row');
+      existingInputs.forEach(el => el.remove());
+
+      const row = document.createElement('div');
+      row.className = 'terminal-input-row';
+
+      const promptSpan = document.createElement('span');
+      promptSpan.className = 'terminal-prompt-symbol';
+      promptSpan.textContent = promptText || '$ ';
+
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'terminal-input';
+
+      row.appendChild(promptSpan);
+      row.appendChild(input);
+      terminalContentEl.appendChild(row);
+      terminalContentEl.scrollTop = terminalContentEl.scrollHeight;
+
+      input.focus();
+
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          const value = input.value;
+          row.remove();
+          appendTerminalLine(`${promptText}${value}`);
+          handleTerminalInput(value);
+        }
+      };
+    }
+
+    function handleTerminalInput(inputValue) {
+      if (executionState.running) {
+        // We are waiting for an input() in script
+        executionState.variables['nome'] = inputValue;
+        executionState.running = false;
+        
+        // Execute print with input variable
+        const activeFile = files.find(f => f.id === activeFileId);
+        if (activeFile) {
+          appendTerminalLine(`Olá, ${inputValue}!`);
+          appendTerminalLine('0');
+          appendTerminalLine('1');
+          appendTerminalLine('2');
+        }
+        createInputRow('$ ');
+      } else {
+        // Command mode
+        if (inputValue.trim() === 'clear' || inputValue.trim() === 'cls') {
+          terminalContentEl.innerHTML = '';
+        } else if (inputValue.trim() === 'help') {
+          appendTerminalLine('Comandos disponíveis: help, clear, python <arquivo.py>');
+        } else if (inputValue.trim().startsWith('python ')) {
+          const fileName = inputValue.trim().replace('python ', '');
+          const file = files.find(f => f.name === fileName);
+          if (file) {
+            runScript(file);
+            return;
+          } else {
+            appendTerminalLine(`python: can't open file '${fileName}': No such file or directory`, true);
+          }
+        } else if (inputValue.trim() !== '') {
+          appendTerminalLine(`Comando não reconhecido: ${inputValue}`);
+        }
+        createInputRow('$ ');
+      }
+    }
+
+    function runScript(file) {
+      if (file.name.endsWith('.py')) {
+        appendTerminalLine(`$ python ${file.name}`);
+        if (file.content.includes('input(')) {
+          executionState.running = true;
+          let match = file.content.match(/input\((.*?)\)/);
+          let promptStr = match ? match[1].replace(/["']/g, '') : '';
+          createInputRow(promptStr);
+        } else {
+          // Just output prints
+          const lines = file.content.split('\n');
+          lines.forEach(l => {
+            if (l.includes('print(')) {
+              let match = l.match(/print\((.*)\)/);
+              if (match) {
+                let val = match[1].replace(/["']/g, '');
+                appendTerminalLine(val);
+              }
+            }
+          });
+          createInputRow('$ ');
+        }
+      } else if (file.name.endsWith('.js')) {
+        appendTerminalLine(`$ node ${file.name}`);
+        appendTerminalLine('Olá do JavaScript!');
+        createInputRow('$ ');
+      } else if (file.name.endsWith('.c')) {
+        appendTerminalLine(`$ gcc ${file.name} -o out && ./out`);
+        appendTerminalLine('Olá do C!');
+        createInputRow('$ ');
+      } else {
+        appendTerminalLine(`Execução de .${file.name.split('.').pop()} não suportada diretamente.`);
+        createInputRow('$ ');
+      }
+    }
+
+    document.getElementById('btn-run').onclick = () => {
+      const activeFile = files.find(f => f.id === activeFileId);
+      if (activeFile) {
+        runScript(activeFile);
+      }
+    };
+
+    document.getElementById('btn-clear-terminal').onclick = () => {
+      terminalContentEl.innerHTML = '';
+      createInputRow('$ ');
+    };
+
+    // Initial render
+    render();
+    createInputRow('$ ');
+  </script>
+</body>
+</html>
